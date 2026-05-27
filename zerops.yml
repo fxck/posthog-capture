@@ -12,8 +12,9 @@ zerops:
         - sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends build-essential cmake pkg-config libssl-dev libsasl2-dev
       buildCommands:
         # Cargo workspace lives in rust/; build only the capture binary (other workspace crates
-        # come along as path-dependencies as needed). First build is ~8-10 min; subsequent builds
-        # reuse the cargo registry + target dir cache so they're much faster.
+        # come along as path-dependencies as needed). First build is ~21 min cold (rdkafka-sys +
+        # aws-lc-sys compile C/C++ from source on shared CPU); subsequent builds reuse the cargo
+        # registry + target dir cache via build.cache and finish in 1-2 min.
         - cd rust && cargo build --release -p capture
         - cp rust/target/release/capture ./capture
       deployFiles:

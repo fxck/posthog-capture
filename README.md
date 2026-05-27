@@ -6,14 +6,15 @@ This fork exists to unblock [`fxck/recipe-posthog`](https://github.com/fxck/reci
 
 ## What's patched
 
-Four files. Three new optional `KafkaConfig` fields propagated to the rdkafka `ClientConfig` in both the shared `common/kafka` crate and capture's own `sinks::kafka` sink.
+Five files. Four new optional `KafkaConfig` fields propagated to the rdkafka `ClientConfig` in both the shared `common/kafka` crate and capture's own `sinks::kafka` sink (capture has its own parallel `KafkaConfig` struct and producer setup, so it needs the same patch).
 
 | File | Patch |
 |---|---|
 | [`rust/common/kafka/src/config.rs`](rust/common/kafka/src/config.rs) | Add `kafka_security_protocol`, `kafka_sasl_mechanism`, `kafka_sasl_username`, `kafka_sasl_password` (all `Option<String>`) to `KafkaConfig`. |
 | [`rust/common/kafka/src/kafka_producer.rs`](rust/common/kafka/src/kafka_producer.rs) | When set, write them to the rdkafka `ClientConfig`. Overrides `kafka_tls`'s `security.protocol` if both are configured. |
 | [`rust/common/kafka/src/kafka_consumer.rs`](rust/common/kafka/src/kafka_consumer.rs) | Same as above for the consumer side. |
-| [`rust/capture/src/config.rs`](rust/capture/src/config.rs) + [`rust/capture/src/sinks/kafka.rs`](rust/capture/src/sinks/kafka.rs) | Capture defines its own `KafkaConfig` struct + a parallel producer setup in `sinks/kafka.rs`. Same fields, same propagation. |
+| [`rust/capture/src/config.rs`](rust/capture/src/config.rs) | Same four fields added to capture's own `KafkaConfig` struct. |
+| [`rust/capture/src/sinks/kafka.rs`](rust/capture/src/sinks/kafka.rs) | Propagate to the rdkafka `ClientConfig` in capture's `KafkaSink::new`. |
 
 Defaults preserve existing behavior: leaving the new fields unset gives plain TCP if `kafka_tls=false`, TLS if `kafka_tls=true` — both pre-patch paths.
 
@@ -54,7 +55,9 @@ System deps: `build-essential`, `cmake`, `pkg-config`, `libssl-dev`, `libsasl2-d
 
 ## Usage
 
-The recipe at [fxck/recipe-posthog](https://github.com/fxck/recipe-posthog) uses this fork as `buildFromGit` for its `capture` service. See that repo for the full Zerops deploy story. For other Kafka deployments, the four env vars above are the entire surface area — everything else is upstream PostHog behavior.
+The recipe at [fxck/recipe-posthog](https://github.com/fxck/recipe-posthog) uses this fork as `buildFromGit` for its `capture` service. The fork carries its own [`zerops.yml`](./zerops.yml) with the `capture` setup block — Zerops clones this repo and finds the build/run config here. See recipe-posthog for the full Zerops deploy story.
+
+For other Kafka deployments, the four env vars above are the entire surface area — everything else is upstream PostHog behavior.
 
 ## License
 

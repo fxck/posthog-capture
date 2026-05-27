@@ -59,6 +59,12 @@ The recipe at [fxck/recipe-posthog](https://github.com/fxck/recipe-posthog) uses
 
 For other Kafka deployments, the four env vars above are the entire surface area — everything else is upstream PostHog behavior.
 
+## How this fork compares to PostHog Cloud's capture
+
+PostHog Cloud runs the **same upstream binary**, unpatched — because Cloud's capture pods sit inside a private VPC with Kafka brokers reachable over plaintext (SASL is terminated upstream). The fork closes the gap for any deployment where the broker itself speaks SASL on the wire, which is every off-the-shelf managed Kafka. Feature parity with Cloud's capture is otherwise 1:1: same `CAPTURE_MODE` values (`events` / `recordings` / `flags` / `ai`), same endpoints, same rdkafka client, same throughput characteristics.
+
+For a full comparison of the broader self-host deploy (this fork + the rest of PostHog) against the official Helm chart and PostHog Cloud, see [`recipe-posthog`'s Honest comparison section](https://github.com/fxck/recipe-posthog#honest-comparison).
+
 ## License
 
 MIT — inherits PostHog/posthog's LICENSE. Patches authored as derivative work under the same license.

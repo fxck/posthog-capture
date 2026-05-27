@@ -1,0 +1,48 @@
+zerops:
+  # ── capture ───────────────────────────────────────────────────────────────────
+  # PostHog's Rust-based capture binary, built from this SASL-patched fork.
+  # Upstream capture-rs has no SASL Kafka support; the four KAFKA_SASL_* envs below
+  # are read by the patches in rust/common/kafka and rust/capture/src/sinks/kafka.rs.
+  - setup: capture
+    build:
+      base: ubuntu/rust@stable
+      prepareCommands:
+        # rdkafka-sys, aws-lc-sys, openssl-sys all need a real C toolchain + the SASL header
+        - sudo apt-get update
+        - sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends build-essential cmake pkg-config libssl-dev libsasl2-dev
+      buildCommands:
+        # Cargo workspace lives in rust/; build only the capture binary (other workspace crates
+        # come along as path-dependencies as needed). First build is ~8-10 min; subsequent builds
+        # reuse the cargo registry + target dir cache so they're much faster.
+        - cd rust && cargo build --release -p capture
+        - cp rust/target/release/capture ./capture
+      deployFiles:
+        - capture
+      cache:
+        - rust/target
+        - /home/zerops/.cargo
+    run:
+      base: ubuntu@24.04
+      prepareCommands:
+        # Runtime needs libsasl2 + libssl3 dynamically linked (build had the -dev variants)
+        - sudo apt-get update
+        - sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates libsasl2-2 libsasl2-modules libssl3
+      envVariables:
+        # capture-rs binds to ADDRESS — set 0.0.0.0 so the L7 LB can reach the container
+        ADDRESS: 0.0.0.0:3000
+        REDIS_URL: ${valkey_connectionString}
+        KAFKA_HOSTS: ${kafka_hostname}:${kafka_port}
+        # SASL settings consumed by our patches (see rust/common/kafka/src/config.rs +
+        # rust/capture/src/config.rs — both expose kafka_security_protocol / kafka_sasl_*)
+        KAFKA_SECURITY_PROTOCOL: SASL_PLAINTEXT
+        KAFKA_SASL_MECHANISM: PLAIN
+        KAFKA_SASL_USERNAME: ${kafka_user}
+        KAFKA_SASL_PASSWORD: ${kafka_password}
+        # CAPTURE_MODE: events | recordings | ai — spin up additional capture services with
+        # different modes if you want separate replay or AI capture pods
+        CAPTURE_MODE: events
+        RUST_LOG: info
+      ports:
+        - port: 3000
+          httpSupport: true
+      start: ./capture
